@@ -71,7 +71,20 @@ def ask(req: AskRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
     # run the whole agent graph on the question
-    result = graph_app.invoke({"question": req.question, "completed": []})
+    try:
+        result = graph_app.invoke({"question": req.question, "completed": []})
+    except Exception as e:
+        # Transient errors are retried inside the graph (see RetryPolicy); if we
+        # still land here the failure is real. Return a clean 503 instead of a
+        # raw 500 stack trace so callers get a usable signal. Rate-limit/quota
+        # errors surface here once retries are exhausted.
+        msg = str(e).lower()
+        if any(m in msg for m in ["429", "rate", "resource_exhausted", "quota"]):
+            raise HTTPException(
+                status_code=503,
+                detail="LLM rate limit or quota reached — please retry shortly.",
+            )
+        raise HTTPException(status_code=500, detail=f"agent error: {e}")
     return AskResponse(
         question=result["question"],
         answer=result.get("answer"),

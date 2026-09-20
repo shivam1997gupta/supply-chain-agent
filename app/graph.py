@@ -24,6 +24,7 @@ import sys
 import time
 
 from langgraph.graph import START, END, StateGraph
+from langgraph.types import RetryPolicy
 
 from app.agents.supervisor import supervise
 from app.agents.summarize import summarize
@@ -31,6 +32,32 @@ from app.agents.text2sql import write_sql, run_sql
 from app.agents.visualize import plan_chart, render_chart
 from app.db import get_schema_text
 from app.state import AgentState
+
+
+# --- retry policy for LLM nodes -------------------------------------------
+# Only TRANSIENT failures should be retried: rate limits (429), timeouts, and
+# 5xx/connection blips clear on their own after a short wait. A logic error
+# (e.g. malformed SQL) will fail identically every time, so retrying it just
+# wastes calls — we fail fast on those. The predicate below decides which is
+# which by inspecting the error, kept provider-agnostic (matches on message,
+# not on a specific vendor's exception class).
+def _is_transient(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    markers = ["429", "rate limit", "resource_exhausted", "timeout", "timed out",
+               "temporarily", "unavailable", "503", "502", "500", "connection"]
+    return any(m in msg for m in markers)
+
+
+# Exponential backoff: wait ~1s, then ~2s, then ~4s (capped), with jitter so
+# many concurrent requests don't retry in lockstep. Max 3 attempts total.
+LLM_RETRY = RetryPolicy(
+    max_attempts=3,
+    initial_interval=1.0,
+    backoff_factor=2.0,
+    max_interval=8.0,
+    jitter=True,
+    retry_on=_is_transient,
+)
 
 
 def timed(name, fn):
@@ -75,10 +102,10 @@ def route_from_supervisor(state: AgentState) -> str:
 
 def build_graph():
     graph = StateGraph(AgentState)
-    graph.add_node("supervisor", timed("supervisor", supervise))
-    graph.add_node("sql_agent", timed("sql_agent", sql_agent))
-    graph.add_node("viz_agent", timed("viz_agent", viz_agent))
-    graph.add_node("summarize_agent", timed("summarize_agent", summarize_agent))
+    graph.add_node("supervisor", timed("supervisor", supervise), retry_policy=LLM_RETRY)
+    graph.add_node("sql_agent", timed("sql_agent", sql_agent), retry_policy=LLM_RETRY)
+    graph.add_node("viz_agent", timed("viz_agent", viz_agent), retry_policy=LLM_RETRY)
+    graph.add_node("summarize_agent", timed("summarize_agent", summarize_agent), retry_policy=LLM_RETRY)
 
     graph.add_edge(START, "supervisor")
     graph.add_conditional_edges(
