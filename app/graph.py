@@ -28,7 +28,7 @@ from langgraph.types import RetryPolicy
 
 from app.agents.supervisor import supervise
 from app.agents.summarize import summarize
-from app.agents.text2sql import write_sql, run_sql
+from app.agents.text2sql import generate_and_run
 from app.agents.visualize import plan_chart, render_chart
 from app.db import get_schema_text
 from app.state import AgentState
@@ -74,12 +74,12 @@ def timed(name, fn):
 # (which reads state["completed"]) knows this worker has run.
 
 def sql_agent(state: AgentState) -> dict:
-    s = dict(state)
-    s.update({"schema": get_schema_text()})
-    s.update(write_sql(s))
-    s.update(run_sql(s))
-    return {"schema": s["schema"], "sql": s["sql"], "rows": s["rows"],
-            "completed": ["sql"]}
+    schema = get_schema_text()
+    # generate_and_run handles the self-correction loop internally
+    out = generate_and_run({**state, "schema": schema})
+    out["schema"] = schema
+    out["completed"] = ["sql"]
+    return out
 
 
 def viz_agent(state: AgentState) -> dict:

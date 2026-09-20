@@ -29,6 +29,7 @@ class AgentState(TypedDict, total=False):
     schema: Optional[str]
     sql: Optional[str]
     rows: Optional[list]
+    sql_attempts: Optional[int]   # how many tries the SQL agent needed (self-correction)
     chart_spec: Optional[dict]
     chart_path: Optional[str]
     answer: Optional[str]
