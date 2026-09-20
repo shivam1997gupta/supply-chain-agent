@@ -1,0 +1,19 @@
+langgraph>=1.2,<2
+langchain>=1.0,<2
+langchain-core>=1.4,<2
+python-dotenv>=1.0
+matplotlib>=3.8
+
+# LLM providers — install at least one, pick via LLM_PROVIDER env var
+langchain-openai>=0.2
+langchain-anthropic>=0.3
+langchain-google-genai>=2
+
+# added in later sessions:
+# langgraph-checkpoint  # checkpointed state / memory
+fastapi>=0.110
+uvicorn>=0.29
+
+# RAG layer
+sentence-transformers>=3
+faiss-cpu>=1.8

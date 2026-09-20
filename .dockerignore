@@ -1,0 +1,11 @@
+# never copy secrets into the image
+.env
+
+# host-specific / huge / regenerated — keep them out of the build context
+.venv/
+venv/
+__pycache__/
+*.pyc
+.git/
+data/*.db
+charts/

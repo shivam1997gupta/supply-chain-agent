@@ -1,0 +1,14 @@
+# One-command run:  docker compose up --build
+# Reads your Gemini key from .env (never baked into the image) and maps the
+# API to http://localhost:8000.
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # For a no-LLM demo instead, uncomment:
+    environment:
+      - SCAI_FAKE=1

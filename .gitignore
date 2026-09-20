@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# secrets — NEVER commit
+.env
+
+# generated artifacts
+data/*.db
+charts/
+
+# OS / editor
+.DS_Store
+.vscode/
